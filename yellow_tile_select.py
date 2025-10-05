@@ -31,9 +31,9 @@ class YellowTileSelect:
             },
             {
                 'name': 'Poison Strike',
-                'description': '30 damage + 3 poison stacks',
+                'description': 'Apply 5 poison stacks',
                 'icon': 'poison.png',
-                'effect': 'damage_30_poison_3',
+                'effect': 'poison_5',
                 'num_tiles': 4
             }
         ]
@@ -156,4 +156,5 @@ class YellowTileSelect:
 
         if current_line:
             lines.append(' '.join(current_line))
+
         return lines

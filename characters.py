@@ -4,9 +4,10 @@ class Character:
         self.name = name
         self.dice_sets = dice_sets  # List of 3 dice sets
         self.dice_labels = dice_labels  # List of 3 labels
+        self.dice_damage = [base_damage, base_damage, base_damage]  # Damage for each dice (will be updated)
         self.max_hp = max_hp
         self.passive_description = passive_description
-        self.base_damage = base_damage  # Damage dealt to boss on normal tiles
+        self.base_damage = base_damage  # Damage dealt to boss on normal tiles (fallback)
         self.num_yellow_tiles = num_yellow_tiles  # Number of yellow tiles to place
         self.yellow_icon = yellow_icon  # Icon to use for yellow tiles
         self.yellow_effect = None  # Will be set by player choice
@@ -23,6 +24,10 @@ class Character:
         """Set the yellow tile effect chosen by the player"""
         self.yellow_effect = effect
         self.yellow_icon = icon
+
+    def get_yellow_tile_damage(self):
+        """Get bonus damage when landing on yellow tiles - can be overridden by subclasses"""
+        return 0
 
 
 class Lapper(Character):
@@ -58,7 +63,7 @@ class Huntsman(Character):
             ],
             dice_labels=["Even", "Odd", "Low"],
             max_hp=100,
-            passive_description="Dmg: 15 | No lap damage",
+            passive_description="Dmg: 15 | Yellow: 30 dmg | No lap",
             base_damage=15,
             num_yellow_tiles=4,
             yellow_icon="poison.png"
@@ -67,6 +72,10 @@ class Huntsman(Character):
     def get_lap_damage(self, lap_count, base_lap_damage=None):
         """Huntsman does no lap damage"""
         return 0
+
+    def get_yellow_tile_damage(self):
+        """Huntsman deals 30 damage when landing on ANY yellow tile"""
+        return 30
 
 
 # ===== DICE LIBRARY =====
@@ -136,6 +145,41 @@ DICE_LIBRARY = {
         'description': 'Consistent 5 movement',
         'damage': 15,
         'allowed_for': ['Huntsman']
+    },
+    'heavy': {
+        'values': [1, 1, 2, 2, 3, 3],
+        'label': 'Heavy',
+        'description': 'Slow movement, high damage',
+        'damage': 25,
+        'allowed_for': ['all']
+    },
+    'swift': {
+        'values': [4, 5, 6, 7, 8],
+        'label': 'Swift',
+        'description': 'Fast movement, low damage',
+        'damage': 8,
+        'allowed_for': ['all']
+    },
+    'critical': {
+        'values': [2, 2, 3, 3, 3, 3],
+        'label': 'Critical',
+        'description': 'Consistent movement, critical chance',
+        'damage': 20,
+        'allowed_for': ['all']
+    },
+    'chaos': {
+        'values': [-3, 1, 1, 6, 9, 12],
+        'label': 'Chaos',
+        'description': 'Completely random',
+        'damage': 18,
+        'allowed_for': ['all']
+    },
+    'double': {
+        'values': [2, 2, 4, 4, 6, 6],
+        'label': 'Double',
+        'description': 'All even numbers',
+        'damage': 15,
+        'allowed_for': ['all']
     }
 }
 
