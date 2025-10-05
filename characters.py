@@ -71,52 +71,88 @@ class Huntsman(Character):
 
 # ===== DICE LIBRARY =====
 # These dice sets can be used for future characters
-# Format: dice_set, label, description
+# Format: values, label, description, damage, allowed_for
 
 DICE_LIBRARY = {
     'mid': {
         'values': [3, 3, 4, 4, 5, 5],
         'label': 'Mid',
-        'description': 'Balanced mid-range movement (3-5)'
+        'description': 'Balanced mid-range movement (3-5)',
+        'damage': 15,
+        'allowed_for': ['all']
     },
     'high': {
         'values': [5, 5, 5, 6, 6, 6],
         'label': 'High',
-        'description': 'High movement rolls (5-6)'
+        'description': 'High movement rolls (5-6)',
+        'damage': 15,
+        'allowed_for': ['Lapper']
     },
     'triple': {
         'values': [3, 3, 3, 3, 3, 3],
         'label': 'Triple',
-        'description': 'Consistent 3 movement'
+        'description': 'Consistent 3 movement',
+        'damage': 15,
+        'allowed_for': ['Huntsman']
     },
     'even': {
         'values': [2, 4, 6],
         'label': 'Even',
-        'description': 'Even numbers only (2, 4, 6)'
+        'description': 'Even numbers only (2, 4, 6)',
+        'damage': 15,
+        'allowed_for': ['all']
     },
     'odd': {
         'values': [1, 3, 5],
         'label': 'Odd',
-        'description': 'Odd numbers only (1, 3, 5)'
+        'description': 'Odd numbers only (1, 3, 5)',
+        'damage': 15,
+        'allowed_for': ['all']
     },
     'low': {
         'values': [1, 2, 3],
         'label': 'Low',
-        'description': 'Low movement rolls (1-3)'
+        'description': 'Low movement rolls (1-3)',
+        'damage': 15,
+        'allowed_for': ['all']
     },
     'four': {
         'values': [4, 4, 4, 4, 4, 4],
         'label': 'Four',
-        'description': 'Consistent 4 movement'
+        'description': 'Consistent 4 movement',
+        'damage': 15,
+        'allowed_for': ['Huntsman']
     },
     'risk': {
-        'values': [-3, -3, 8, 8],
+        'values': [-2, -2, 8, 8],
         'label': 'Risk',
-        'description': 'High risk, high reward (-2 or 8)'
+        'description': 'High risk, high reward (-2 or 8)',
+        'damage': 15,
+        'allowed_for': ['Lapper']
     },
     'five': {
         'values': [5, 5, 5, 5, 5, 5],
         'label': 'Five',
-        'description': 'Consistent 5 movement'
+        'description': 'Consistent 5 movement',
+        'damage': 15,
+        'allowed_for': ['Huntsman']
     }
 }
+
+
+def get_available_dice(character_name):
+    """
+    Get all dice available to a specific character
+
+    Args:
+        character_name: Name of the character (e.g., 'Lapper', 'Huntsman')
+
+    Returns:
+        Dictionary of available dice for that character
+    """
+    available = {}
+    for dice_key, dice_data in DICE_LIBRARY.items():
+        allowed = dice_data.get('allowed_for', [])
+        if 'all' in allowed or character_name in allowed:
+            available[dice_key] = dice_data
+    return available
