@@ -110,7 +110,7 @@ DICE_LIBRARY = {
         'description': 'Consistent 4 movement'
     },
     'risk': {
-        'values': [-3, -2, 8, 8],
+        'values': [-3, -3, 8, 8],
         'label': 'Risk',
         'description': 'High risk, high reward (-2 or 8)'
     },
