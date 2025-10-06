@@ -139,9 +139,13 @@ class BattleRenderer:
         pygame.draw.rect(screen, self.colors['BLACK'], (bar_x, bar_y, bar_width, bar_height), 1)
 
     def draw_boss(self, screen, current_hp, max_hp):
-        """Draw boss with HP bar in center"""
-        boss_x = self.screen_width // 2
-        boss_y = self.screen_height // 2 - 150
+        """Draw boss with HP bar in center of board"""
+        # Position boss in center of the board
+        board_center_x = 200 + 50 + (7 * 100) // 2  # offset_x + margin + (board_width / 2)
+        board_center_y = 50 + 50 + (7 * 100) // 2  # offset_y + margin + (board_height / 2)
+
+        boss_x = board_center_x  # Centered
+        boss_y = board_center_y - 100  # 100px above center
 
         # Draw boss (larger circle)
         pygame.draw.circle(screen, self.colors['DARK_RED'], (boss_x, boss_y), 40)
@@ -175,8 +179,19 @@ class BattleRenderer:
         screen.blit(boss_label, label_rect)
 
     def draw_dice(self, screen, dice_rects, dice_colors, dice_values, dice_labels):
-        """Draw all three dice with labels"""
-        for i, (rect, colors, value, label) in enumerate(zip(dice_rects, dice_colors, dice_values, dice_labels)):
+        """Draw all three dice with labels - positioned in center of board"""
+        # Position dice in center of the board
+        board_center_x = 200 + 50 + (7 * 100) // 2  # offset_x + margin + (board_width / 2)
+        board_center_y = 50 + 50 + (7 * 100) // 2  # offset_y + margin + (board_height / 2)
+
+        # Center the dice horizontally around the board center
+        dice_start_x = board_center_x - 180  # Start position to center 3 dice with spacing
+        dice_y = board_center_y + 40  # 40px below center
+
+        for i, (colors, value, label) in enumerate(zip(dice_colors, dice_values, dice_labels)):
+            x = dice_start_x + (i * 120)
+            rect = pygame.Rect(x, dice_y, 100, 100)
+
             # Draw label above dice
             label_text = self.fonts['small'].render(label, True, self.colors['BLACK'])
             label_rect = label_text.get_rect(center=(rect.centerx, rect.top - 15))
@@ -218,42 +233,81 @@ class BattleRenderer:
             screen.blit(poison_text, poison_rect)
 
     def draw_game_info(self, screen, player_position, laps_completed, is_moving, debuff_stacks, battle_phase,
-                       yellow_buff_active, yellow_tiles_to_place, yellow_tiles_placed):
-        """Draw position, laps, debuff status, and instructions"""
-        center_x = self.screen_width // 2
-        center_y = self.screen_height // 2
+                       yellow_buff_active, yellow_tiles_to_place, yellow_tiles_placed, boss_burn_stacks,
+                       lifesteal_active, chain_lightning_stacks):
+        """Draw position, laps, debuff status, and instructions on the LEFT side"""
+        info_x = 30  # Left side of screen
+        info_y = 150
+        line_height = 30
 
         # Draw instruction based on battle phase
         if battle_phase == "place_yellow":
             tiles_remaining = yellow_tiles_to_place - yellow_tiles_placed
-            instruction_text = f"Click empty tiles to place {tiles_remaining} special tile(s)"
-            instruction = self.fonts['small'].render(instruction_text, True, self.colors['DARK_YELLOW'])
-            screen.blit(instruction, (center_x - 200, center_y + 130))
+            instruction_text = f"Place {tiles_remaining} special tile(s)"
+            instruction = self.fonts['medium'].render(instruction_text, True, self.colors['DARK_YELLOW'])
+            screen.blit(instruction, (info_x, info_y))
+            info_y += line_height + 10
         else:
             instruction_text = "Moving..." if is_moving else "Click a dice to roll!"
-            instruction = self.fonts['small'].render(instruction_text, True, self.colors['BLACK'])
-            screen.blit(instruction, (center_x - 90, center_y + 130))
+            instruction = self.fonts['medium'].render(instruction_text, True, self.colors['BLACK'])
+            screen.blit(instruction, (info_x, info_y))
+            info_y += line_height + 10
 
             # Draw current position info
             pos_text = self.fonts['small'].render(f"Position: {player_position}", True, self.colors['BLACK'])
-            screen.blit(pos_text, (center_x - 60, center_y + 160))
+            screen.blit(pos_text, (info_x, info_y))
+            info_y += line_height
 
             # Draw laps completed
             laps_text = self.fonts['small'].render(f"Laps: {laps_completed}", True, self.colors['BLACK'])
-            screen.blit(laps_text, (center_x - 40, center_y + 190))
+            screen.blit(laps_text, (info_x, info_y))
+            info_y += line_height + 20
+
+            # Active Effects Section
+            effects_header = self.fonts['medium'].render("Active Effects:", True, self.colors['BLACK'])
+            screen.blit(effects_header, (info_x, info_y))
+            info_y += line_height + 5
 
             # Draw yellow buff status if active
             if yellow_buff_active:
-                buff_text = self.fonts['small'].render("DOUBLE MOVEMENT ACTIVE!", True, self.colors['DARK_YELLOW'])
-                screen.blit(buff_text, (center_x - 110, center_y + 220))
+                buff_text = self.fonts['small'].render("• Double Movement", True, self.colors['DARK_YELLOW'])
+                screen.blit(buff_text, (info_x + 10, info_y))
+                info_y += line_height
 
-            # Draw debuff status if active (move down if yellow buff is also active)
+            # Draw debuff status if active
             if debuff_stacks > 0:
                 damage_per_turn = debuff_stacks * 5
-                debuff_y = center_y + 250 if yellow_buff_active else center_y + 220
-                debuff_text = self.fonts['small'].render(f"DEBUFFED x{debuff_stacks}! (-{damage_per_turn} HP/turn)",
-                                                         True, self.colors['DARK_RED'])
-                screen.blit(debuff_text, (center_x - 100, debuff_y))
+                debuff_text = self.fonts['small'].render(f"• Debuffed x{debuff_stacks} (-{damage_per_turn} HP)", True,
+                                                         self.colors['DARK_RED'])
+                screen.blit(debuff_text, (info_x + 10, info_y))
+                info_y += line_height
+
+            # Draw burn stacks if active
+            if boss_burn_stacks > 0:
+                damage_per_turn = boss_burn_stacks * 3
+                burn_text = self.fonts['small'].render(f"• Boss Burning x{boss_burn_stacks} ({damage_per_turn} dmg)",
+                                                       True, self.colors['DARK_ORANGE'])
+                screen.blit(burn_text, (info_x + 10, info_y))
+                info_y += line_height
+
+            # Draw lifesteal status if active
+            if lifesteal_active:
+                lifesteal_text = self.fonts['small'].render("• Lifesteal Ready", True, self.colors['DARK_RED'])
+                screen.blit(lifesteal_text, (info_x + 10, info_y))
+                info_y += line_height
+
+            # Draw chain lightning stacks if active
+            if chain_lightning_stacks > 0:
+                chain_text = self.fonts['small'].render(f"• Chain Lightning ({chain_lightning_stacks} turns)", True,
+                                                        self.colors['PURPLE'])
+                screen.blit(chain_text, (info_x + 10, info_y))
+                info_y += line_height
+
+            # If no effects active
+            if not any([yellow_buff_active, debuff_stacks > 0, boss_burn_stacks > 0, lifesteal_active,
+                        chain_lightning_stacks > 0]):
+                none_text = self.fonts['small'].render("• None", True, self.colors['LIGHT_GRAY'])
+                screen.blit(none_text, (info_x + 10, info_y))
 
     def draw_battle_screen(self, screen, game_state):
         """
@@ -284,4 +338,6 @@ class BattleRenderer:
                             game_state['laps_completed'], game_state['is_moving'],
                             game_state['debuff_stacks'], game_state['battle_phase'],
                             game_state['yellow_buff_active'],
-                            game_state['yellow_tiles_to_place'], game_state['yellow_tiles_placed'])
+                            game_state['yellow_tiles_to_place'], game_state['yellow_tiles_placed'],
+                            game_state['boss_burn_stacks'], game_state['lifesteal_active'],
+                            game_state['chain_lightning_stacks'])
