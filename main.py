@@ -174,6 +174,7 @@ character_1_state = None
 character_2_state = None
 turn_phase = "choose_first"
 yellow_tile_effects = {}  # Maps tile number to effect name
+last_character_to_move = None  # Track which character moved second for boss targeting
 
 # Calculate dice positions to match rendering
 board_center_x = 200 + 50 + (7 * 100) // 2
@@ -229,6 +230,7 @@ def initialize_campaign_battle():
     global boss_poison_stacks, current_dice_damage
     global boss_burn_stacks, lifesteal_active, chain_lightning_stacks
     global campaign_mode, character_1_state, character_2_state, turn_phase
+    global last_character_to_move
 
     campaign_mode = True
 
@@ -495,8 +497,14 @@ while running:
 
                         if dice_click is not None:
                             char_index, dice_index = dice_click
-                            # Check if this is a valid click based on turn phase
 
+                            # Don't allow clicking dice for dead characters
+                            if char_index == 0 and character_1_state['current_hp'] <= 0:
+                                continue  # Character 1 is dead, ignore click
+                            if char_index == 1 and character_2_state['current_hp'] <= 0:
+                                continue  # Character 2 is dead, ignore click
+
+                            # Check if this is a valid click based on turn phase
                             if turn_phase == "choose_first":
                                 # Any character can go first
                                 if char_index == 0:
@@ -518,6 +526,7 @@ while running:
                             elif turn_phase == "character_1_second" and char_index == 0:
                                 # Character 1 must go second
                                 active_character = character_1_state
+                                last_character_to_move = character_1_state  # ADD THIS LINE
                                 # Roll the dice
                                 active_character['dice_values'][dice_index] = random.choice(
                                     active_character['dice_options'][dice_index])
@@ -529,6 +538,7 @@ while running:
                             elif turn_phase == "character_2_second" and char_index == 1:
                                 # Character 2 must go second
                                 active_character = character_2_state
+                                last_character_to_move = character_2_state  # ADD THIS LINE
                                 # Roll the dice
                                 active_character['dice_values'][dice_index] = random.choice(
                                     active_character['dice_options'][dice_index])
@@ -608,10 +618,68 @@ while running:
                         if character_1_state['position'] > 24:
                             character_1_state['position'] = 1
 
+
                         # Check if movement complete
                         if character_1_state['moves_remaining'] == 0:
                             character_1_state['is_moving'] = False
-                            # TODO: Handle tile landing effects
+
+                            # Handle tile landing effects for character 1
+                            landing_position = character_1_state['position']
+
+                            if landing_position in green_tiles:
+                                # Heal and clear debuffs
+                                character_1_state['current_hp'] = min(
+                                    character_1_state['max_hp'],
+                                    character_1_state['current_hp'] + GREEN_TILE_HEAL
+                                )
+                                character_1_state['debuff_stacks'] = 0
+
+                            elif landing_position in red_tiles:
+                                # Add debuff stack
+                                character_1_state['debuff_stacks'] += 1
+
+                            elif landing_position in yellow_tiles:
+                                # Get the effect for this specific tile
+                                effect = yellow_tile_effects.get(landing_position, None)
+
+                                # Apply Huntsman's yellow tile bonus damage if applicable
+                                if character_1_state['character_obj'].name == "Huntsman":
+                                    yellow_bonus = character_1_state['character_obj'].get_yellow_tile_damage()
+                                    boss_current_hp -= yellow_bonus
+
+                                # Apply the tile effect
+                                if effect == "double_movement":
+                                    character_1_state['yellow_buff_active'] = True
+                                elif effect == "poison_5":
+                                    boss_poison_stacks += 5
+                                    boss_current_hp -= boss_poison_stacks
+                                elif effect == "burning_strike":
+                                    boss_burn_stacks += 3
+                                elif effect == "lifesteal":
+                                    lifesteal_active = True
+                                elif effect == "chain_lightning":
+                                    boss_current_hp -= CHAIN_LIGHTNING_INITIAL_DAMAGE
+                                    chain_lightning_stacks = 2
+
+                            else:
+                                # Normal tile - deal damage to boss, take boss damage
+                                # Get dice damage from the character state
+                                dice_damage = character_1_state['character_obj'].base_damage
+                                boss_current_hp -= dice_damage
+
+                                # Lifesteal check
+                                if lifesteal_active:
+                                    character_1_state['current_hp'] = min(
+                                        character_1_state['max_hp'],
+                                        character_1_state['current_hp'] + dice_damage
+                                    )
+                                    lifesteal_active = False
+
+                                # Take boss damage
+                                character_1_state['current_hp'] -= boss_current_damage
+                                boss_attack_count += 1
+                                boss_current_damage = BOSS_INITIAL_DAMAGE + (
+                                            boss_attack_count * BOSS_DAMAGE_INCREMENT)
 
                 # Check if character 2 is moving
                 if character_2_state['is_moving']:
@@ -636,18 +704,123 @@ while running:
                         if character_2_state['position'] > 24:
                             character_2_state['position'] = 1
 
+
                         # Check if movement complete
                         if character_2_state['moves_remaining'] == 0:
                             character_2_state['is_moving'] = False
-                            # TODO: Handle tile landing effects
+
+                            # Handle tile landing effects for character 2
+                            landing_position = character_2_state['position']
+
+                            if landing_position in green_tiles:
+                                # Heal and clear debuffs
+                                character_2_state['current_hp'] = min(
+                                    character_2_state['max_hp'],
+                                    character_2_state['current_hp'] + GREEN_TILE_HEAL
+                                )
+                                character_2_state['debuff_stacks'] = 0
+
+                            elif landing_position in red_tiles:
+                                # Add debuff stack
+                                character_2_state['debuff_stacks'] += 1
+
+                            elif landing_position in yellow_tiles:
+                                # Get the effect for this specific tile
+                                effect = yellow_tile_effects.get(landing_position, None)
+
+                                # Apply Huntsman's yellow tile bonus damage if applicable
+                                if character_2_state['character_obj'].name == "Huntsman":
+                                    yellow_bonus = character_2_state['character_obj'].get_yellow_tile_damage()
+                                    boss_current_hp -= yellow_bonus
+
+                                # Apply the tile effect
+                                if effect == "double_movement":
+                                    character_2_state['yellow_buff_active'] = True
+                                elif effect == "poison_5":
+                                    boss_poison_stacks += 5
+                                    boss_current_hp -= boss_poison_stacks
+                                elif effect == "burning_strike":
+                                    boss_burn_stacks += 3
+                                elif effect == "lifesteal":
+                                    lifesteal_active = True
+                                elif effect == "chain_lightning":
+                                    boss_current_hp -= CHAIN_LIGHTNING_INITIAL_DAMAGE
+                                    chain_lightning_stacks = 2
+
+                            else:
+                                # Normal tile - deal damage to boss, take boss damage
+                                # Get dice damage from the character state
+                                dice_damage = character_2_state['character_obj'].base_damage
+                                boss_current_hp -= dice_damage
+
+                                # Lifesteal check
+                                if lifesteal_active:
+                                    character_2_state['current_hp'] = min(
+                                        character_2_state['max_hp'],
+                                        character_2_state['current_hp'] + dice_damage
+                                    )
+                                    lifesteal_active = False
+
+                                # Take boss damage
+                                character_2_state['current_hp'] -= boss_current_damage
+                                boss_attack_count += 1
+                                boss_current_damage = BOSS_INITIAL_DAMAGE + (
+                                            boss_attack_count * BOSS_DAMAGE_INCREMENT)
 
                 # Check if both characters done moving and it's boss attack phase
                 if (not character_1_state['is_moving'] and
                         not character_2_state['is_moving'] and
                         turn_phase == "boss_attack"):
-                    # Boss attacks (target character who moved second)
-                    # TODO: Implement boss attack logic
-                    turn_phase = "choose_first"  # Reset for next turn
+
+                    # Determine which character moved second (gets attacked)
+                    # Based on previous turn_phase before it was set to "boss_attack"
+                    # We need to track who moved second during dice rolling
+                    # For now, we'll determine based on turn tracking
+
+                    # Apply start-of-turn effects first
+                    # Apply debuff damage to both characters
+                    if character_1_state['debuff_stacks'] > 0:
+                        debuff_damage = DEBUFF_DAMAGE * character_1_state['debuff_stacks']
+                        character_1_state['current_hp'] -= debuff_damage
+
+                    if character_2_state['debuff_stacks'] > 0:
+                        debuff_damage = DEBUFF_DAMAGE * character_2_state['debuff_stacks']
+                        character_2_state['current_hp'] -= debuff_damage
+
+                    # Apply poison damage to boss and tick down
+                    if boss_poison_stacks > 0:
+                        boss_current_hp -= boss_poison_stacks
+                        boss_poison_stacks -= 1
+
+                    # Apply burn damage to boss (doesn't decay)
+                    if boss_burn_stacks > 0:
+                        burn_damage = boss_burn_stacks * BURN_DAMAGE_PER_STACK
+                        boss_current_hp -= burn_damage
+
+                    # Apply chain lightning DoT and tick down
+                    if chain_lightning_stacks > 0:
+                        boss_current_hp -= CHAIN_LIGHTNING_DOT_DAMAGE
+                        chain_lightning_stacks -= 1
+
+                    # Boss attacks the character who moved second
+                    if last_character_to_move:
+                        last_character_to_move['current_hp'] -= boss_current_damage
+
+                    # CHECK WIN/LOSS CONDITIONS
+                    # Check if boss is defeated
+                    if boss_current_hp <= 0:
+                        print("VICTORY! Boss defeated!")
+                        # TODO: Show victory screen
+                        game_state = "start"  # Return to start for now
+
+                    # Check if both characters are dead
+                    elif character_1_state['current_hp'] <= 0 and character_2_state['current_hp'] <= 0:
+                        print("DEFEAT! Both characters died!")
+                        # TODO: Show defeat screen
+                        game_state = "start"  # Return to start for now
+
+                    # Reset for next turn
+                    turn_phase = "choose_first"
 
             else:
                 # Single player mode - Animate player movement
