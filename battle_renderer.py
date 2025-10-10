@@ -120,14 +120,18 @@ class BattleRenderer:
                                                   y + self.constants['SQUARE_SIZE'] // 2))
                 screen.blit(icon, icon_rect)
 
-    def draw_player(self, screen, position, board_positions, current_hp, max_hp):
+    def draw_player(self, screen, position, board_positions, current_hp, max_hp, player_color=None):
         """Draw player token with HP bar"""
         x, y = board_positions[position - 1]  # Adjust for 1-indexed
         center_x = x + self.constants['SQUARE_SIZE'] // 2
         center_y = y + self.constants['SQUARE_SIZE'] // 2
 
+        # Use provided color or default to RED
+        if player_color is None:
+            player_color = self.colors['RED']
+
         # Draw player circle
-        pygame.draw.circle(screen, self.colors['RED'], (center_x, center_y), 20)
+        pygame.draw.circle(screen, player_color, (center_x, center_y), 20)
         pygame.draw.circle(screen, self.colors['BLACK'], (center_x, center_y), 20, 3)
 
         # Draw player HP bar above player
@@ -214,6 +218,125 @@ class BattleRenderer:
             text = self.fonts['large'].render(str(value), True, self.colors['WHITE'])
             text_rect = text.get_rect(center=rect.center)
             screen.blit(text, text_rect)
+
+    def draw_campaign_dice(self, screen, character_1_state, character_2_state, turn_phase):
+        """Draw dice for both characters in campaign mode"""
+        # Position calculations
+        board_center_x = 200 + 50 + (7 * 100) // 2
+        board_center_y = 50 + 50 + (7 * 100) // 2
+        dice_y = board_center_y + 40
+
+        # Character 1 dice (left side)
+        char_1_start_x = board_center_x - 400
+        char_1_label_y = dice_y - 50
+
+        # Draw character 1 label
+        char_1_label = self.fonts['medium'].render(
+            character_1_state['character_obj'].name,
+            True,
+            self.colors['BLACK']
+        )
+        label_rect = char_1_label.get_rect(center=(char_1_start_x + 180, char_1_label_y))
+        screen.blit(char_1_label, label_rect)
+
+        # Draw character 1 HP
+        hp_text = self.fonts['small'].render(
+            f"HP: {character_1_state['current_hp']}/{character_1_state['max_hp']}",
+            True,
+            self.colors['BLACK']
+        )
+        hp_rect = hp_text.get_rect(center=(char_1_start_x + 180, char_1_label_y + 25))
+        screen.blit(hp_text, hp_rect)
+
+        # Determine if character 1 dice should be highlighted
+        char_1_active = (turn_phase == "choose_first" or turn_phase == "character_1_second")
+
+        # Draw character 1 dice
+        for i in range(3):
+            x = char_1_start_x + (i * 120)
+            rect = pygame.Rect(x, dice_y, 100, 100)
+
+            # Highlight if active
+            if char_1_active:
+                # Draw glow effect
+                pygame.draw.rect(screen, self.colors['YELLOW'],
+                                 (x - 5, dice_y - 5, 110, 110),
+                                 border_radius=15)
+
+            # Draw dice label
+            label = character_1_state['dice_labels'][i]
+            label_text = self.fonts['small'].render(label, True, self.colors['BLACK'])
+            label_rect = label_text.get_rect(center=(rect.centerx, rect.top - 15))
+            screen.blit(label_text, label_rect)
+
+            # Draw dice
+            dice_color = self.colors['BLUE'] if i == 0 else (self.colors['PURPLE'] if i == 1 else self.colors['ORANGE'])
+            dice_border = self.colors['DARK_BLUE'] if i == 0 else (
+                self.colors['DARK_PURPLE'] if i == 1 else self.colors['DARK_ORANGE'])
+            pygame.draw.rect(screen, dice_color, rect, border_radius=15)
+            pygame.draw.rect(screen, dice_border, rect, width=4, border_radius=15)
+
+            # Draw dice value
+            value = character_1_state['dice_values'][i]
+            value_text = self.fonts['large'].render(str(value), True, self.colors['WHITE'])
+            value_rect = value_text.get_rect(center=rect.center)
+            screen.blit(value_text, value_rect)
+
+        # Character 2 dice (right side)
+        char_2_start_x = board_center_x + 40
+        char_2_label_y = dice_y - 50
+
+        # Draw character 2 label
+        char_2_label = self.fonts['medium'].render(
+            character_2_state['character_obj'].name,
+            True,
+            self.colors['BLACK']
+        )
+        label_rect = char_2_label.get_rect(center=(char_2_start_x + 180, char_2_label_y))
+        screen.blit(char_2_label, label_rect)
+
+        # Draw character 2 HP
+        hp_text = self.fonts['small'].render(
+            f"HP: {character_2_state['current_hp']}/{character_2_state['max_hp']}",
+            True,
+            self.colors['BLACK']
+        )
+        hp_rect = hp_text.get_rect(center=(char_2_start_x + 180, char_2_label_y + 25))
+        screen.blit(hp_text, hp_rect)
+
+        # Determine if character 2 dice should be highlighted
+        char_2_active = (turn_phase == "choose_first" or turn_phase == "character_2_second")
+
+        # Draw character 2 dice
+        for i in range(3):
+            x = char_2_start_x + (i * 120)
+            rect = pygame.Rect(x, dice_y, 100, 100)
+
+            # Highlight if active
+            if char_2_active:
+                # Draw glow effect
+                pygame.draw.rect(screen, self.colors['YELLOW'],
+                                 (x - 5, dice_y - 5, 110, 110),
+                                 border_radius=15)
+
+            # Draw dice label
+            label = character_2_state['dice_labels'][i]
+            label_text = self.fonts['small'].render(label, True, self.colors['BLACK'])
+            label_rect = label_text.get_rect(center=(rect.centerx, rect.top - 15))
+            screen.blit(label_text, label_rect)
+
+            # Draw dice
+            dice_color = self.colors['BLUE'] if i == 0 else (self.colors['PURPLE'] if i == 1 else self.colors['ORANGE'])
+            dice_border = self.colors['DARK_BLUE'] if i == 0 else (
+                self.colors['DARK_PURPLE'] if i == 1 else self.colors['DARK_ORANGE'])
+            pygame.draw.rect(screen, dice_color, rect, border_radius=15)
+            pygame.draw.rect(screen, dice_border, rect, width=4, border_radius=15)
+
+            # Draw dice value
+            value = character_2_state['dice_values'][i]
+            value_text = self.fonts['large'].render(str(value), True, self.colors['WHITE'])
+            value_rect = value_text.get_rect(center=rect.center)
+            screen.blit(value_text, value_rect)
 
     def draw_character_info(self, screen, character):
         """Draw character name and passive side by side in top-left corner"""
@@ -345,11 +468,14 @@ class BattleRenderer:
             char_2 = game_state['character_2_state']
 
             self.draw_player(screen, char_1['position'], game_state['board_positions'],
-                             char_1['current_hp'], char_1['max_hp'])
+                             char_1['current_hp'], char_1['max_hp'], self.colors['RED'])
             self.draw_player(screen, char_2['position'], game_state['board_positions'],
-                             char_2['current_hp'], char_2['max_hp'])
+                             char_2['current_hp'], char_2['max_hp'], self.colors['BLUE'])
 
-            # TODO: Draw dice for both characters
+            # Draw dice for both characters
+            if game_state['battle_phase'] == "rolling":
+                self.draw_campaign_dice(screen, char_1, char_2, game_state['turn_phase'])
+
             # TODO: Draw character info for both
 
             self.draw_boss_damage_info(screen, game_state['boss_current_damage'],
