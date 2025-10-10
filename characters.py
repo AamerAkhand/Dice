@@ -46,6 +46,7 @@ class Lapper(Character):
             num_yellow_tiles=1,
             yellow_icon="lightning.png"
         )
+        self.available_dice = ['risk', 'low', 'heavy', 'swift', 'double', 'chaos']
 
     def get_lap_damage(self, lap_count, base_lap_damage=None):
         """Lapper does 15 damage per lap count"""
@@ -68,6 +69,7 @@ class Huntsman(Character):
             num_yellow_tiles=4,
             yellow_icon="poison.png"
         )
+        self.available_dice = ['risk', 'low', 'heavy', 'swift', 'double', 'chaos', 'five']
 
     def get_lap_damage(self, lap_count, base_lap_damage=None):
         """Huntsman does no lap damage"""

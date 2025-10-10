@@ -9,6 +9,7 @@ from board import generate_board_positions, generate_green_tiles, generate_red_t
 from characters import Lapper, Huntsman, DICE_LIBRARY
 from ui_constants import colors, fonts, BLUE, DARK_BLUE, PURPLE, DARK_PURPLE, ORANGE, DARK_ORANGE
 from campaign_team_select import CampaignTeamSelect
+from campaign_dice_select import CampaignDiceSelect
 
 # ===== INITIALIZATION =====
 pygame.init()
@@ -161,6 +162,11 @@ battle_renderer = BattleRenderer(WINDOW_WIDTH, WINDOW_HEIGHT, colors, fonts, con
 # Select character (will be set in character select screen)
 current_character = None
 
+# Campaign mode variables
+campaign_character_1 = None
+campaign_character_2 = None
+campaign_dice_select = None
+
 # Calculate dice positions to match rendering
 board_center_x = 200 + 50 + (7 * 100) // 2
 board_center_y = 50 + 50 + (7 * 100) // 2
@@ -242,10 +248,70 @@ while running:
                 # Check if team was selected
                 selected_team = campaign_team_select.handle_click(event.pos)
                 if selected_team is not None:
-                    character_1, character_2 = selected_team
-                    # TODO: Go to dice select next
-                    print(f"Selected: {character_1.name} and {character_2.name}")
+                    campaign_character_1, campaign_character_2 = selected_team
+                    # Create new instances of the characters
+                    if campaign_character_1.name == "Lapper":
+                        campaign_character_1 = Lapper()
+                    elif campaign_character_1.name == "Huntsman":
+                        campaign_character_1 = Huntsman()
+                    if campaign_character_2.name == "Lapper":
+                        campaign_character_2 = Lapper()
+                    elif campaign_character_2.name == "Huntsman":
+                        campaign_character_2 = Huntsman()
+
+                    # Initialize campaign dice select screen
+
+                    campaign_dice_select = CampaignDiceSelect(WINDOW_WIDTH, WINDOW_HEIGHT, colors, fonts,
+
+                                                              campaign_character_1, campaign_character_2)
                     game_state = "campaign_dice_select"
+
+            elif game_state == "campaign_dice_select":
+                # Check if dice were selected
+                selected_dice = campaign_dice_select.handle_click(event.pos)
+                if selected_dice is not None:
+                    char_1_dice_keys, char_2_dice_keys = selected_dice
+
+                    # Set dice for character 1
+                    campaign_character_1.dice_sets = []
+                    campaign_character_1.dice_labels = []
+                    campaign_character_1.dice_damage = []
+                    for dice_key in char_1_dice_keys:
+                        dice_data = DICE_LIBRARY[dice_key]
+                        campaign_character_1.dice_sets.append(dice_data['values'])
+                        campaign_character_1.dice_labels.append(dice_data['label'])
+                        campaign_character_1.dice_damage.append(dice_data['damage'])
+
+                    # Set dice for character 2
+                    campaign_character_2.dice_sets = []
+                    campaign_character_2.dice_labels = []
+                    campaign_character_2.dice_damage = []
+                    for dice_key in char_2_dice_keys:
+                        dice_data = DICE_LIBRARY[dice_key]
+                        campaign_character_2.dice_sets.append(dice_data['values'])
+                        campaign_character_2.dice_labels.append(dice_data['label'])
+                        campaign_character_2.dice_damage.append(dice_data['damage'])
+
+                    # Set yellow tile effects based on character
+                    if campaign_character_1.name == "Lapper":
+                        campaign_character_1.set_yellow_effect('double_movement', 'lightning.png')
+                        campaign_character_1.num_yellow_tiles = 1
+                    elif campaign_character_1.name == "Huntsman":
+                        campaign_character_1.set_yellow_effect('poison_5', 'poison.png')
+                        campaign_character_1.num_yellow_tiles = 4
+
+                    if campaign_character_2.name == "Lapper":
+                        campaign_character_2.set_yellow_effect('double_movement', 'lightning.png')
+                        campaign_character_2.num_yellow_tiles = 1
+                    elif campaign_character_2.name == "Huntsman":
+                        campaign_character_2.set_yellow_effect('poison_5', 'poison.png')
+                        campaign_character_2.num_yellow_tiles = 4
+
+                    print(f"Campaign ready! {campaign_character_1.name} and {campaign_character_2.name}")
+                    print(f"Char 1 dice: {campaign_character_1.dice_labels}")
+                    print(f"Char 2 dice: {campaign_character_2.dice_labels}")
+                    # TODO: Go to battle next
+                    game_state = "battle"  # Placeholder for now
 
             elif game_state == "dice_select":
                 # Check if dice selection was confirmed
@@ -427,6 +493,8 @@ while running:
         start_menu.draw(screen)
     elif game_state == "campaign_team_select":
         campaign_team_select.draw(screen)
+    elif game_state == "campaign_dice_select":
+        campaign_dice_select.draw(screen)
     elif game_state == "character_select":
         character_select.draw(screen)
     elif game_state == "dice_select":
