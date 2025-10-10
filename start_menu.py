@@ -17,29 +17,40 @@ class StartMenu:
         self.colors = colors
         self.fonts = fonts
 
-        # Create start button
-        self.button_rect = pygame.Rect(
-            screen_width // 2 - 100,
-            screen_height // 2 - 30,
-            200,
-            60
-        )
+        # Create buttons
+        button_width = 300
+        button_height = 80
+        button_x = (screen_width - button_width) // 2
+
+        # Start Game button (original flow)
+        start_button_y = (screen_height - button_height) // 2 - 60
+        self.start_button = pygame.Rect(button_x, start_button_y, button_width, button_height)
+
+        # Campaign Test button (new flow)
+        campaign_button_y = start_button_y + button_height + 30
+        self.campaign_button = pygame.Rect(button_x, campaign_button_y, button_width, button_height)
 
     def handle_click(self, mouse_pos):
         """
-        Check if start button was clicked
+        Check if start button or campaign button was clicked
 
         Args:
             mouse_pos: Tuple of (x, y) mouse position
 
         Returns:
-            True if start button was clicked, False otherwise
+            'start' if start button clicked
+            'campaign' if campaign button clicked
+            None if neither clicked
         """
-        return self.button_rect.collidepoint(mouse_pos)
+        if self.start_button.collidepoint(mouse_pos):
+            return 'start'
+        elif self.campaign_button.collidepoint(mouse_pos):
+            return 'campaign'
+        return None
 
     def draw(self, screen):
         """
-        Draw the start menu screen
+        Draw the start menu
 
         Args:
             screen: Pygame screen surface to draw on
@@ -47,15 +58,20 @@ class StartMenu:
         screen.fill(self.colors['WHITE'])
 
         # Draw title
-        title = self.fonts['large'].render("Dice Battle", True, self.colors['BLACK'])
-        title_rect = title.get_rect(center=(self.screen_width // 2, self.screen_height // 2 - 150))
+        title = self.fonts['large'].render("Monopoly Dice Game", True, self.colors['BLACK'])
+        title_rect = title.get_rect(center=(self.screen_width // 2, 150))
         screen.blit(title, title_rect)
 
-        # Draw start button
-        pygame.draw.rect(screen, self.colors['GREEN'], self.button_rect, border_radius=10)
-        pygame.draw.rect(screen, self.colors['BLACK'], self.button_rect, 3, border_radius=10)
+        # Draw Start Game button
+        pygame.draw.rect(screen, self.colors['BLUE'], self.start_button, border_radius=10)
+        pygame.draw.rect(screen, self.colors['BLACK'], self.start_button, 3, border_radius=10)
+        start_text = self.fonts['medium'].render("Start Game", True, self.colors['WHITE'])
+        start_text_rect = start_text.get_rect(center=self.start_button.center)
+        screen.blit(start_text, start_text_rect)
 
-        # Draw button text
-        button_text = self.fonts['medium'].render("Begin Game", True, self.colors['BLACK'])
-        button_text_rect = button_text.get_rect(center=self.button_rect.center)
-        screen.blit(button_text, button_text_rect)
+        # Draw Campaign Test button
+        pygame.draw.rect(screen, self.colors['PURPLE'], self.campaign_button, border_radius=10)
+        pygame.draw.rect(screen, self.colors['BLACK'], self.campaign_button, 3, border_radius=10)
+        campaign_text = self.fonts['medium'].render("Campaign (Test)", True, self.colors['WHITE'])
+        campaign_text_rect = campaign_text.get_rect(center=self.campaign_button.center)
+        screen.blit(campaign_text, campaign_text_rect)

@@ -8,6 +8,7 @@ from battle_renderer import BattleRenderer
 from board import generate_board_positions, generate_green_tiles, generate_red_tiles
 from characters import Lapper, Huntsman, DICE_LIBRARY
 from ui_constants import colors, fonts, BLUE, DARK_BLUE, PURPLE, DARK_PURPLE, ORANGE, DARK_ORANGE
+from campaign_team_select import CampaignTeamSelect
 
 # ===== INITIALIZATION =====
 pygame.init()
@@ -53,6 +54,7 @@ constants = {
 
 # ===== BOARD SETUP =====
 board_positions = generate_board_positions(SQUARE_SIZE, BOARD_MARGIN, WINDOW_HEIGHT, BOARD_OFFSET_X, BOARD_OFFSET_Y)
+
 
 # ===== AVAILABLE CHARACTERS =====
 available_characters = [Lapper(), Huntsman()]
@@ -151,6 +153,7 @@ battle_phase = "place_yellow"  # Can be "place_yellow" or "rolling"
 # Initialize UI components
 start_menu = StartMenu(WINDOW_WIDTH, WINDOW_HEIGHT, colors, fonts)
 character_select = CharacterSelect(WINDOW_WIDTH, WINDOW_HEIGHT, colors, fonts, available_characters)
+campaign_team_select = CampaignTeamSelect(WINDOW_WIDTH, WINDOW_HEIGHT, colors, fonts, available_characters)
 dice_select = None  # Will be initialized after character selection
 yellow_tile_select = None  # Will be initialized after dice selection
 battle_renderer = BattleRenderer(WINDOW_WIDTH, WINDOW_HEIGHT, colors, fonts, constants)
@@ -212,9 +215,12 @@ while running:
 
         if event.type == pygame.MOUSEBUTTONDOWN:
             if game_state == "start":
-                # Check if start button clicked
-                if start_menu.handle_click(event.pos):
-                    game_state = "character_select"
+                # Check which button was clicked
+                button_result = start_menu.handle_click(event.pos)
+                if button_result == 'start':
+                    game_state = "character_select"  # Old flow
+                elif button_result == 'campaign':
+                    game_state = "campaign_team_select"  # New flow
 
             elif game_state == "character_select":
                 # Check if character was selected
@@ -231,6 +237,15 @@ while running:
                     # Initialize dice select screen with chosen character
                     dice_select = DiceSelect(WINDOW_WIDTH, WINDOW_HEIGHT, colors, fonts, current_character)
                     game_state = "dice_select"
+
+            elif game_state == "campaign_team_select":
+                # Check if team was selected
+                selected_team = campaign_team_select.handle_click(event.pos)
+                if selected_team is not None:
+                    character_1, character_2 = selected_team
+                    # TODO: Go to dice select next
+                    print(f"Selected: {character_1.name} and {character_2.name}")
+                    game_state = "campaign_dice_select"
 
             elif game_state == "dice_select":
                 # Check if dice selection was confirmed
@@ -410,6 +425,8 @@ while running:
     # ===== DRAWING =====
     if game_state == "start":
         start_menu.draw(screen)
+    elif game_state == "campaign_team_select":
+        campaign_team_select.draw(screen)
     elif game_state == "character_select":
         character_select.draw(screen)
     elif game_state == "dice_select":
