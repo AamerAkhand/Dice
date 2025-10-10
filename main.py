@@ -149,6 +149,9 @@ def reset_game():
 # ===== GAME STATE =====
 # Game screen state
 game_state = "start"  # Can be "start", "character_select", "dice_select", "yellow_tile_select", or "battle"
+# Campaign mode tracking
+campaign_mode = False  # True when using campaign flow
+
 battle_phase = "place_yellow"  # Can be "place_yellow" or "rolling"
 
 # Initialize UI components
@@ -166,6 +169,11 @@ current_character = None
 campaign_character_1 = None
 campaign_character_2 = None
 campaign_dice_select = None
+# Campaign mode 2-character state
+character_1_state = None
+character_2_state = None
+turn_phase = "choose_first"
+yellow_tile_effects = {}  # Maps tile number to effect name
 
 # Calculate dice positions to match rendering
 board_center_x = 200 + 50 + (7 * 100) // 2
@@ -209,6 +217,80 @@ current_dice_damage = 15  # Track damage from current dice roll
 boss_burn_stacks = 0  # Track burn stacks on boss (doesn't decay)
 lifesteal_active = False  # Track if lifesteal is active (next hit heals)
 chain_lightning_stacks = 0  # Track chain lightning turns remaining
+
+
+def initialize_campaign_battle():
+    """Initialize battle state for campaign mode (2 characters)"""
+    global player_position, is_moving, move_counter, moves_remaining
+    global player_current_hp, boss_current_hp, laps_completed, dice_values
+    global green_tiles, red_tiles, yellow_tiles, landed_on_green, debuff_stacks
+    global boss_attack_count, boss_current_damage, battle_phase, yellow_buff_active
+    global dice_labels, dice_options, yellow_tiles_to_place, yellow_tiles_placed
+    global boss_poison_stacks, current_dice_damage
+    global boss_burn_stacks, lifesteal_active, chain_lightning_stacks
+    global campaign_mode, character_1_state, character_2_state, turn_phase
+
+    campaign_mode = True
+
+    # Initialize character 1 state
+    character_1_state = {
+        'character_obj': campaign_character_1,
+        'position': 1,
+        'current_hp': campaign_character_1.max_hp,
+        'max_hp': campaign_character_1.max_hp,
+        'is_moving': False,
+        'move_counter': 0,
+        'moves_remaining': 0,
+        'laps_completed': 0,
+        'dice_values': [3, 5, 3],
+        'dice_labels': campaign_character_1.dice_labels,
+        'dice_options': campaign_character_1.dice_sets,
+        'dice_damage': campaign_character_1.dice_damage,
+        'yellow_buff_active': False,
+        'debuff_stacks': 0
+    }
+
+    # Initialize character 2 state
+    character_2_state = {
+        'character_obj': campaign_character_2,
+        'position': 1,
+        'current_hp': campaign_character_2.max_hp,
+        'max_hp': campaign_character_2.max_hp,
+        'is_moving': False,
+        'move_counter': 0,
+        'moves_remaining': 0,
+        'laps_completed': 0,
+        'dice_values': [3, 5, 3],
+        'dice_labels': campaign_character_2.dice_labels,
+        'dice_options': campaign_character_2.dice_sets,
+        'dice_damage': campaign_character_2.dice_damage,
+        'yellow_buff_active': False,
+        'debuff_stacks': 0
+    }
+
+    # Boss state
+    boss_current_hp = BOSS_MAX_HP
+    boss_current_damage = BOSS_INITIAL_DAMAGE
+    boss_attack_count = 0
+    boss_poison_stacks = 0
+    boss_burn_stacks = 0
+    chain_lightning_stacks = 0
+
+    # Turn tracking
+    turn_phase = "choose_first"  # "choose_first", "character_1_second", "character_2_second", "boss_attack"
+
+    # Yellow tile placement phase
+    battle_phase = "place_yellow"
+    yellow_tiles = []
+    yellow_tiles_to_place = campaign_character_1.num_yellow_tiles + campaign_character_2.num_yellow_tiles
+    yellow_tiles_placed = 0
+
+    # Yellow tile effect tracking (which tile has which effect)
+    yellow_tile_effects = {}  # Will map tile_number -> effect_name
+
+    # Generate board tiles
+    green_tiles = generate_green_tiles(NUM_GREEN_TILES, [])
+    red_tiles = generate_red_tiles(NUM_RED_TILES, green_tiles)
 
 # ===== MAIN GAME LOOP =====
 running = True
@@ -307,10 +389,8 @@ while running:
                         campaign_character_2.set_yellow_effect('poison_5', 'poison.png')
                         campaign_character_2.num_yellow_tiles = 4
 
-                    print(f"Campaign ready! {campaign_character_1.name} and {campaign_character_2.name}")
-                    print(f"Char 1 dice: {campaign_character_1.dice_labels}")
-                    print(f"Char 2 dice: {campaign_character_2.dice_labels}")
-                    # TODO: Go to battle next
+                    # Initialize campaign battle
+                    initialize_campaign_battle()
                     game_state = "battle"  # Placeholder for now
 
             elif game_state == "dice_select":
@@ -342,19 +422,35 @@ while running:
                     reset_game()
                     game_state = "battle"
 
+
             elif game_state == "battle":
+
                 if battle_phase == "place_yellow":
                     # Player is placing yellow tiles
                     clicked_tile = get_tile_at_position(event.pos)
+
                     if clicked_tile is not None:
                         # Check if tile is empty (not green, red, or already yellow)
                         if (clicked_tile not in green_tiles and
                                 clicked_tile not in red_tiles and
                                 clicked_tile not in yellow_tiles):
                             yellow_tiles.append(clicked_tile)
+                            # Determine which character's tile this is based on placement order
+                            if campaign_mode:
+                                # Track effect based on character tile counts
+                                if yellow_tiles_placed < campaign_character_1.num_yellow_tiles:
+                                    # This is character 1's tile
+                                    effect = campaign_character_1.yellow_tile_effect()
+                                    yellow_tile_effects[clicked_tile] = effect
+                                else:
+                                    # This is character 2's tile
+                                    effect = campaign_character_2.yellow_tile_effect()
+                                    yellow_tile_effects[clicked_tile] = effect
+
                             yellow_tiles_placed += 1
 
                             # Check if all yellow tiles have been placed
+
                             if yellow_tiles_placed >= yellow_tiles_to_place:
                                 battle_phase = "rolling"  # Move to rolling phase
 
@@ -503,35 +599,62 @@ while running:
         yellow_tile_select.draw(screen)
     elif game_state == "battle":
         # Package game state into dictionary for renderer
-        game_state_dict = {
-            'board_positions': board_positions,
-            'green_tiles': green_tiles,
-            'red_tiles': red_tiles,
-            'yellow_tiles': yellow_tiles,
-            'highlighted_tiles': get_possible_landing_tiles(hovered_dice) if battle_phase == "rolling" else [],
-            'player_position': player_position,
-            'player_current_hp': player_current_hp,
-            'player_max_hp': player_max_hp,
-            'boss_current_hp': boss_current_hp,
-            'boss_max_hp': boss_max_hp,
-            'dice_rects': dice_rects,
-            'dice_colors': dice_colors,
-            'dice_values': dice_values,
-            'dice_labels': dice_labels,
-            'character': current_character,
-            'laps_completed': laps_completed,
-            'is_moving': is_moving,
-            'debuff_stacks': debuff_stacks,
-            'battle_phase': battle_phase,
-            'yellow_buff_active': yellow_buff_active,
-            'boss_current_damage': boss_current_damage,
-            'yellow_tiles_to_place': yellow_tiles_to_place,
-            'yellow_tiles_placed': yellow_tiles_placed,
-            'boss_poison_stacks': boss_poison_stacks,
-            'boss_burn_stacks': boss_burn_stacks,
-            'lifesteal_active': lifesteal_active,
-            'chain_lightning_stacks': chain_lightning_stacks
-        }
+        if campaign_mode:
+            # Campaign mode - use 2-character state
+            game_state_dict = {
+                'campaign_mode': True,
+                'character_1_state': character_1_state,
+                'character_2_state': character_2_state,
+                'board_positions': board_positions,
+                'green_tiles': green_tiles,
+                'red_tiles': red_tiles,
+                'yellow_tiles': yellow_tiles,
+                'yellow_tile_effects': yellow_tile_effects,
+                'highlighted_tiles': [],  # TODO: implement for 2 chars
+                'boss_current_hp': boss_current_hp,
+                'boss_max_hp': boss_max_hp,
+                'battle_phase': battle_phase,
+                'yellow_tiles_to_place': yellow_tiles_to_place,
+                'yellow_tiles_placed': yellow_tiles_placed,
+                'boss_current_damage': boss_current_damage,
+                'boss_poison_stacks': boss_poison_stacks,
+                'boss_burn_stacks': boss_burn_stacks,
+                'lifesteal_active': lifesteal_active,
+                'chain_lightning_stacks': chain_lightning_stacks,
+                'turn_phase': turn_phase
+            }
+        else:
+            # Single player mode - use old state
+            game_state_dict = {
+                'campaign_mode': False,
+                'board_positions': board_positions,
+                'green_tiles': green_tiles,
+                'red_tiles': red_tiles,
+                'yellow_tiles': yellow_tiles,
+                'highlighted_tiles': get_possible_landing_tiles(hovered_dice) if battle_phase == "rolling" else [],
+                'player_position': player_position,
+                'player_current_hp': player_current_hp,
+                'player_max_hp': player_max_hp,
+                'boss_current_hp': boss_current_hp,
+                'boss_max_hp': boss_max_hp,
+                'dice_rects': dice_rects,
+                'dice_colors': dice_colors,
+                'dice_values': dice_values,
+                'dice_labels': dice_labels,
+                'character': current_character,
+                'laps_completed': laps_completed,
+                'is_moving': is_moving,
+                'debuff_stacks': debuff_stacks,
+                'battle_phase': battle_phase,
+                'yellow_buff_active': yellow_buff_active,
+                'boss_current_damage': boss_current_damage,
+                'yellow_tiles_to_place': yellow_tiles_to_place,
+                'yellow_tiles_placed': yellow_tiles_placed,
+                'boss_poison_stacks': boss_poison_stacks,
+                'boss_burn_stacks': boss_burn_stacks,
+                'lifesteal_active': lifesteal_active,
+                'chain_lightning_stacks': chain_lightning_stacks
+            }
         battle_renderer.draw_battle_screen(screen, game_state_dict)
 
     # ===== UPDATE DISPLAY =====

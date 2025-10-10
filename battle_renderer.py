@@ -61,7 +61,8 @@ class BattleRenderer:
             print(f"Warning: heal.png not found - {e}")
             self.heal_icon = None
 
-    def draw_board(self, screen, board_positions, green_tiles, red_tiles, yellow_tiles, highlighted_tiles, character):
+    def draw_board(self, screen, board_positions, green_tiles, red_tiles, yellow_tiles, highlighted_tiles, character,
+                   yellow_tile_effects=None):
         """Draw the game board with tiles"""
         for i, (x, y) in enumerate(board_positions):
             tile_number = i + 1  # Tiles numbered 1-24
@@ -95,11 +96,19 @@ class BattleRenderer:
             # Draw icons for special tiles
             icon = None
             if tile_number in yellow_tiles:
-                # Use character-specific yellow icon
-                if character.yellow_icon == "poison.png" and self.poison_icon:
-                    icon = self.poison_icon
-                elif character.yellow_icon == "lightning.png" and self.lightning_icon:
-                    icon = self.lightning_icon
+                # Check yellow_tile_effects to determine which icon
+                if yellow_tile_effects and tile_number in yellow_tile_effects:
+                    effect = yellow_tile_effects[tile_number]
+                    if effect == "poison_5" and self.poison_icon:
+                        icon = self.poison_icon
+                    elif effect == "double_movement" and self.lightning_icon:
+                        icon = self.lightning_icon
+                else:
+                    # Fallback to character's default icon
+                    if character and character.yellow_icon == "poison.png" and self.poison_icon:
+                        icon = self.poison_icon
+                    elif character and character.yellow_icon == "lightning.png" and self.lightning_icon:
+                        icon = self.lightning_icon
             elif tile_number in red_tiles and self.fire_icon:
                 icon = self.fire_icon
             elif tile_number in green_tiles and self.heal_icon:
@@ -319,25 +328,76 @@ class BattleRenderer:
         """
         screen.fill(self.colors['WHITE'])
 
-        # Draw all elements
-        self.draw_board(screen, game_state['board_positions'],
-                        game_state['green_tiles'], game_state['red_tiles'],
-                        game_state['yellow_tiles'],
-                        game_state['highlighted_tiles'],
-                        game_state['character'])
-        self.draw_boss(screen, game_state['boss_current_hp'], game_state['boss_max_hp'])
-        self.draw_player(screen, game_state['player_position'],
-                         game_state['board_positions'],
-                         game_state['player_current_hp'], game_state['player_max_hp'])
-        self.draw_dice(screen, game_state['dice_rects'], game_state['dice_colors'],
-                       game_state['dice_values'], game_state['dice_labels'])
-        self.draw_character_info(screen, game_state['character'])
-        self.draw_boss_damage_info(screen, game_state['boss_current_damage'],
-                                   game_state['boss_poison_stacks'])
-        self.draw_game_info(screen, game_state['player_position'],
-                            game_state['laps_completed'], game_state['is_moving'],
-                            game_state['debuff_stacks'], game_state['battle_phase'],
-                            game_state['yellow_buff_active'],
-                            game_state['yellow_tiles_to_place'], game_state['yellow_tiles_placed'],
-                            game_state['boss_burn_stacks'], game_state['lifesteal_active'],
-                            game_state['chain_lightning_stacks'])
+        # Check if campaign mode or single player mode
+        if game_state.get('campaign_mode', False):
+            # Campaign mode - draw 2 characters
+            self.draw_board(screen, game_state['board_positions'],
+                            game_state['green_tiles'], game_state['red_tiles'],
+                            game_state['yellow_tiles'],
+                            game_state.get('highlighted_tiles', []),
+                            game_state['character_1_state']['character_obj'],
+                            game_state.get('yellow_tile_effects', {}))
+
+            self.draw_boss(screen, game_state['boss_current_hp'], game_state['boss_max_hp'])
+
+            # Draw both players
+            char_1 = game_state['character_1_state']
+            char_2 = game_state['character_2_state']
+
+            self.draw_player(screen, char_1['position'], game_state['board_positions'],
+                             char_1['current_hp'], char_1['max_hp'])
+            self.draw_player(screen, char_2['position'], game_state['board_positions'],
+                             char_2['current_hp'], char_2['max_hp'])
+
+            # TODO: Draw dice for both characters
+            # TODO: Draw character info for both
+
+            self.draw_boss_damage_info(screen, game_state['boss_current_damage'],
+                                       game_state['boss_poison_stacks'])
+
+            # Campaign-specific UI
+            if game_state['battle_phase'] == "place_yellow":
+                # Yellow tile placement UI
+                tiles_remaining = game_state['yellow_tiles_to_place'] - game_state['yellow_tiles_placed']
+                instruction_text = f"Place {tiles_remaining} special tile(s)"
+                instruction = self.fonts['medium'].render(instruction_text, True, self.colors['DARK_YELLOW'])
+                screen.blit(instruction, (30, 150))
+            else:
+                # Show turn phase
+                turn_text = ""
+                if game_state['turn_phase'] == "choose_first":
+                    turn_text = "Choose first character to move"
+                elif game_state['turn_phase'] == "character_1_second":
+                    turn_text = f"Choose {char_1['character_obj'].name}'s dice"
+                elif game_state['turn_phase'] == "character_2_second":
+                    turn_text = f"Choose {char_2['character_obj'].name}'s dice"
+                elif game_state['turn_phase'] == "boss_attack":
+                    turn_text = "Boss attacks!"
+
+                instruction = self.fonts['medium'].render(turn_text, True, self.colors['BLACK'])
+                screen.blit(instruction, (30, 150))
+
+        else:
+            # Single player mode - use old rendering
+            self.draw_board(screen, game_state['board_positions'],
+                            game_state['green_tiles'], game_state['red_tiles'],
+                            game_state['yellow_tiles'],
+                            game_state['highlighted_tiles'],
+                            game_state['character'],
+                            None)
+            self.draw_boss(screen, game_state['boss_current_hp'], game_state['boss_max_hp'])
+            self.draw_player(screen, game_state['player_position'],
+                             game_state['board_positions'],
+                             game_state['player_current_hp'], game_state['player_max_hp'])
+            self.draw_dice(screen, game_state['dice_rects'], game_state['dice_colors'],
+                           game_state['dice_values'], game_state['dice_labels'])
+            self.draw_character_info(screen, game_state['character'])
+            self.draw_boss_damage_info(screen, game_state['boss_current_damage'],
+                                       game_state['boss_poison_stacks'])
+            self.draw_game_info(screen, game_state['player_position'],
+                                game_state['laps_completed'], game_state['is_moving'],
+                                game_state['debuff_stacks'], game_state['battle_phase'],
+                                game_state['yellow_buff_active'],
+                                game_state['yellow_tiles_to_place'], game_state['yellow_tiles_placed'],
+                                game_state['boss_burn_stacks'], game_state['lifesteal_active'],
+                                game_state['chain_lightning_stacks'])
